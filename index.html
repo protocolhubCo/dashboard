@@ -115,9 +115,10 @@
             },
             formatter: (value, context) => {
               if (context.dataset.label === 'Chosen') {
-                return `${Math.round((value * totalProtocols) / 100)} / ${totalProtocols}`;
+                // Display the total chosen
+                return Math.round((value * totalProtocols) / 100); 
               }
-              return `${Math.round((value * totalProtocols) / 100)}`;
+              return Math.round((value * totalProtocols) / 100); // Display the completed value
             },
           },
         },
@@ -142,6 +143,14 @@
               display: true, // Show Y-axis percentage points
               callback: function (value) {
                 return value + '%'; // Add percentage symbol to Y-axis ticks
+              },
+            },
+            title: {
+              display: true,
+              text: '% of available protocols', // Add Y-axis title
+              color: '#4F4F4F',
+              font: {
+                size: 14,
               },
             },
           },
