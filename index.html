@@ -23,20 +23,56 @@
   <body>
     <canvas id="stackedBarChart"></canvas>
     <script>
+      // Helper function to get URL parameters
+      function getURLParams() {
+        const params = new URLSearchParams(window.location.search);
+        const result = {
+          userCompleted: parseInt(params.get('userCompleted')) || 0,
+          userChosen: parseInt(params.get('userChosen')) || 0,
+        };
+
+        // Dynamically add friends if they exist
+        for (let i = 1; params.has(`friend${i}Name`); i++) {
+          result[`friend${i}`] = {
+            name: params.get(`friend${i}Name`),
+            completed: parseInt(params.get(`friend${i}Completed`)) || 0,
+            chosen: parseInt(params.get(`friend${i}Chosen`)) || 0,
+          };
+        }
+
+        return result;
+      }
+
       const ctx = document.getElementById('stackedBarChart').getContext('2d');
+      const params = getURLParams();
+
+      // Labels and dataset generation based on URL parameters
+      const labels = ['User'];
+      const completedData = [params.userCompleted];
+      const chosenData = [params.userChosen];
+
+      // Add friends dynamically
+      Object.keys(params)
+        .filter((key) => key.startsWith('friend'))
+        .forEach((friendKey) => {
+          const friend = params[friendKey];
+          labels.push(friend.name);
+          completedData.push(friend.completed);
+          chosenData.push(friend.chosen);
+        });
 
       // Data structure for stacked bars
       const data = {
-        labels: ['User', 'Friend1', 'Friend2'], // Column labels
+        labels: labels,
         datasets: [
           {
             label: 'Completed',
-            data: [24, 16, 32], // Completed percentages relative to 100% protocols
+            data: completedData, // Completed percentages relative to 100%
             backgroundColor: 'rgba(75, 192, 192, 0.8)', // Teal color
           },
           {
             label: 'Chosen',
-            data: [36, 24, 48], // Remaining chosen percentages relative to 100%
+            data: chosenData, // Total chosen, including completed
             backgroundColor: 'rgba(200, 200, 200, 0.8)', // Light grey color
             borderRadius: {
               topLeft: 10,
