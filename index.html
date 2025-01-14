@@ -30,6 +30,8 @@
       const userAPI =
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_01c3b6d144094994b8ac9fc0fdb1f5fc";
 
+      const totalProtocols = 54; // Total number of protocols
+
       async function fetchData() {
         const urlParams = new URLSearchParams(window.location.search);
         const loggedInUserEmail = urlParams.get("email");
@@ -86,16 +88,18 @@
         const data = await fetchData();
 
         const labels = data.map((entry) => entry.name);
-        const completedData = data.map((entry) => (entry.completed / 54) * 100);
+        const completedData = data.map(
+          (entry) => (entry.completed / totalProtocols) * 100
+        );
         const remainingData = data.map(
-          (entry) => ((entry.remaining + entry.completed) / 54) * 100
+          (entry) =>
+            ((entry.remaining + entry.completed) / totalProtocols) * 100
         );
         const absoluteCompletedData = data.map((entry) => entry.completed);
         const absoluteRemainingData = data.map((entry) => entry.remaining);
 
-        const maxYAxis = Math.ceil(
-          Math.max(...remainingData) / 10
-        ) * 10 + 10; // Add 10% for white space
+        const maxYAxis =
+          Math.ceil(Math.max(...remainingData) / 10) * 10 + 10; // Add 10% for white space
 
         const chartData = {
           labels: labels,
