@@ -51,10 +51,10 @@
       // Labels and dataset generation based on URL parameters
       const labels = ['User'];
       const completedData = [
-        (params.userCompleted / totalProtocols) * 100, // Convert to percentage
+        (params.userCompleted / totalProtocols) * 100, // Convert completed to percentage
       ];
       const chosenData = [
-        (params.userChosen / totalProtocols) * 100, // Convert to percentage
+        ((params.userChosen + params.userCompleted) / totalProtocols) * 100, // Convert total chosen to percentage
       ];
 
       // Add friends dynamically
@@ -64,11 +64,14 @@
           const friend = params[friendKey];
           labels.push(friend.name);
           completedData.push((friend.completed / totalProtocols) * 100);
-          chosenData.push((friend.chosen / totalProtocols) * 100);
+          chosenData.push(
+            ((friend.chosen + friend.completed) / totalProtocols) * 100
+          );
         });
 
       // Find the maximum chosen percentage
       const maxChosenPercentage = Math.max(...chosenData);
+      const adjustedMaxY = Math.ceil((maxChosenPercentage + 10) / 10) * 10; // Add 10% buffer and round up to nearest 10
 
       // Data structure for stacked bars
       const data = {
@@ -114,11 +117,11 @@
               weight: 'normal', // Lighter font weight
             },
             formatter: (value, context) => {
+              // Display total chosen as a number (not percentage)
               if (context.dataset.label === 'Chosen') {
-                // Display the total chosen
-                return Math.round((value * totalProtocols) / 100); 
+                return Math.round((value * totalProtocols) / 100); // Total chosen
               }
-              return Math.round((value * totalProtocols) / 100); // Display the completed value
+              return Math.round((value * totalProtocols) / 100); // Completed actions
             },
           },
         },
@@ -135,7 +138,7 @@
           y: {
             stacked: true, // Stack the bars
             beginAtZero: true,
-            max: Math.ceil(maxChosenPercentage / 10) * 10, // Dynamically set max Y-axis value
+            max: adjustedMaxY, // Dynamically set max Y-axis value with buffer
             grid: {
               display: true, // Show grid lines for better readability
             },
