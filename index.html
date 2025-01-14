@@ -31,120 +31,89 @@
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_01c3b6d144094994b8ac9fc0fdb1f5fc";
 
       async function fetchData() {
-        const params = new URLSearchParams(window.location.search);
-        const loggedInUserEmail = params.get("email");
-
-        if (!loggedInUserEmail) {
-          console.error("No email provided in URL parameters");
-          return [];
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const loggedInUserEmail = urlParams.get("email");
 
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         };
 
-        try {
-          const [carerRegisterResponse, userResponse] = await Promise.all([
-            fetch(carerRegisterAPI, { headers }),
-            fetch(userAPI, { headers }),
-          ]);
+        const carerRegisterResponse = await fetch(carerRegisterAPI, { headers });
+        const carerRegisterData = await carerRegisterResponse.json();
 
-          const carerRegisterData = await carerRegisterResponse.json();
-          const userData = await userResponse.json();
+        const userResponse = await fetch(userAPI, { headers });
+        const userData = await userResponse.json();
 
-          const carerRecords = carerRegisterData.records || [];
-          const userRecords = userData.records || [];
+        const userDetails = userData.records.find(
+          (user) => user["Email"] === loggedInUserEmail
+        );
 
-          // Filter relationships using emails
-          const filteredCarerRelationships = carerRecords.filter((entry) => {
-            const isCarer =
+        const relatedUsers = [];
+
+        if (userDetails) {
+          relatedUsers.push({
+            name: "You",
+            completed: userDetails["Total Completed"],
+            remaining: userDetails["Total Remaining"],
+          });
+        }
+
+        carerRegisterData.records
+          .filter(
+            (entry) =>
               entry["Carer Name"] === loggedInUserEmail &&
-              entry["Approved?"]?.toLowerCase() === "yes";
-            const isBeingCaredFor =
-              entry["User Email"] === loggedInUserEmail &&
-              entry["Approved?"]?.toLowerCase() === "yes";
-
-            return isCarer || isBeingCaredFor;
+              entry["Approved?"].toLowerCase() === "yes"
+          )
+          .forEach((entry) => {
+            const caredUserEmail = entry["User Email"];
+            const caredUserDetails = userData.records.find(
+              (user) => user["Email"] === caredUserEmail
+            );
+            if (caredUserDetails) {
+              relatedUsers.push({
+                name: entry["User name"] || caredUserDetails["Full Name"],
+                completed: caredUserDetails["Total Completed"],
+                remaining: caredUserDetails["Total Remaining"],
+              });
+            }
           });
 
-          // Map filtered relationships to user details
-          const relatedUsers = filteredCarerRelationships
-            .map((entry) => {
-              const relatedUser = userRecords.find(
-                (user) =>
-                  user["Email"] === entry["User Email"] ||
-                  user["Email"] === entry["Carer Name"]
-              );
-
-              if (relatedUser) {
-                return {
-                  name:
-                    entry["User name"] ||
-                    relatedUser["Full Name"] ||
-                    entry["Carer Name"],
-                  completed: parseInt(relatedUser["Total Completed"]) || 0,
-                  remaining: parseInt(relatedUser["Total Remaining"]) || 0,
-                };
-              }
-              return null;
-            })
-            .filter(Boolean);
-
-          // Add "You" as the logged-in user
-          const loggedInUserDetails = userRecords.find(
-            (user) => user["Email"] === loggedInUserEmail
-          );
-
-          if (loggedInUserDetails) {
-            relatedUsers.unshift({
-              name: "You",
-              completed: parseInt(loggedInUserDetails["Total Completed"]) || 0,
-              remaining: parseInt(loggedInUserDetails["Total Remaining"]) || 0,
-            });
-          }
-
-          return relatedUsers;
-        } catch (error) {
-          console.error("Error fetching data:", error);
-          return [];
-        }
+        return relatedUsers;
       }
 
       async function renderChart() {
         const data = await fetchData();
 
-        if (!data.length) {
-          console.error("No data available to render chart");
-          return;
-        }
-
         const labels = data.map((entry) => entry.name);
-        const completedData = data.map((entry) => entry.completed);
+        const completedData = data.map((entry) => (entry.completed / 54) * 100);
         const remainingData = data.map(
-          (entry) => entry.completed + entry.remaining
+          (entry) => ((entry.remaining + entry.completed) / 54) * 100
         );
+        const absoluteCompletedData = data.map((entry) => entry.completed);
+        const absoluteRemainingData = data.map((entry) => entry.remaining);
 
-        const maxValue = Math.max(...remainingData);
-        const maxYAxis = Math.ceil((maxValue / 54) * 100 + 10);
+        const maxYAxis = Math.ceil(
+          Math.max(...remainingData) / 10
+        ) * 10 + 10; // Add 10% for white space
 
         const chartData = {
           labels: labels,
           datasets: [
             {
               label: "Completed",
-              data: completedData.map((val) => (val / 54) * 100),
-              backgroundColor: "rgba(75, 192, 192, 0.8)", // Teal color
+              data: completedData,
+              backgroundColor: "rgba(75, 192, 192, 0.8)",
             },
             {
               label: "Remaining",
-              data: remainingData.map((val) => (val / 54) * 100),
-              backgroundColor: "rgba(200, 200, 200, 0.8)", // Light grey color
+              data: remainingData,
+              backgroundColor: "rgba(200, 200, 200, 0.8)",
               borderRadius: {
                 topLeft: 10,
-                topRight: 10, // Round the top-left and top-right corners
+                topRight: 10,
                 bottomLeft: 0,
-                bottomRight: 0, // Keep bottom corners sharp
+                bottomRight: 0,
               },
             },
           ],
@@ -153,26 +122,12 @@
         const options = {
           responsive: true,
           maintainAspectRatio: false,
-          scales: {
-            x: {
-              stacked: true,
-              ticks: {
-                display: true,
-              },
-            },
-            y: {
-              beginAtZero: true,
-              stacked: true,
-              max: maxYAxis,
-              title: {
-                display: true,
-                text: "% of protocols chosen",
-              },
-            },
-          },
           plugins: {
             legend: {
               display: true,
+            },
+            title: {
+              display: false,
             },
             datalabels: {
               display: true,
@@ -184,10 +139,41 @@
                 weight: "normal",
               },
               formatter: (value, context) => {
-                if (context.dataset.label === "Remaining") {
-                  return `${Math.round((value * 54) / 100)}`;
+                const index = context.dataIndex;
+                const label = context.dataset.label;
+                if (label === "Completed") {
+                  return absoluteCompletedData[index];
                 }
-                return `${Math.round((value * 54) / 100)}`;
+                if (label === "Remaining") {
+                  return absoluteRemainingData[index];
+                }
+                return "";
+              },
+            },
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: {
+                display: false,
+              },
+              ticks: {
+                display: true,
+              },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              max: maxYAxis,
+              grid: {
+                display: true,
+              },
+              ticks: {
+                callback: (value) => `${value}%`,
+              },
+              title: {
+                display: true,
+                text: "% of protocols chosen",
               },
             },
           },
@@ -198,6 +184,7 @@
           type: "bar",
           data: chartData,
           options: options,
+          plugins: [ChartDataLabels],
         });
       }
 
