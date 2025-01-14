@@ -92,11 +92,8 @@
           (entry) => (entry.completed / totalProtocols) * 100
         );
         const remainingData = data.map(
-          (entry) =>
-            ((entry.remaining + entry.completed) / totalProtocols) * 100
+          (entry) => ((entry.completed + entry.remaining) / totalProtocols) * 100
         );
-        const absoluteCompletedData = data.map((entry) => entry.completed);
-        const absoluteRemainingData = data.map((entry) => entry.remaining);
 
         const maxYAxis =
           Math.ceil(Math.max(...remainingData) / 10) * 10 + 10; // Add 10% for white space
@@ -111,7 +108,9 @@
             },
             {
               label: "Remaining",
-              data: remainingData,
+              data: remainingData.map(
+                (val, i) => val - completedData[i]
+              ), // Calculate only the "Remaining" portion
               backgroundColor: "rgba(200, 200, 200, 0.8)",
               borderRadius: {
                 topLeft: 10,
@@ -146,10 +145,10 @@
                 const index = context.dataIndex;
                 const label = context.dataset.label;
                 if (label === "Completed") {
-                  return absoluteCompletedData[index];
+                  return data[index].completed;
                 }
                 if (label === "Remaining") {
-                  return absoluteRemainingData[index];
+                  return data[index].remaining;
                 }
                 return "";
               },
