@@ -50,11 +50,11 @@
 
       // Labels and dataset generation based on URL parameters
       const labels = ['User'];
-      const completedData = [
-        ((params.userCompleted / totalProtocols) * 100).toFixed(2), // Convert completed to percentage
+      const completedPercentages = [
+        (params.userCompleted / totalProtocols) * 100, // Convert to percentage
       ];
-      const chosenData = [
-        (((params.userCompleted + params.userChosen) / totalProtocols) * 100).toFixed(2), // Total chosen as percentage
+      const chosenPercentages = [
+        (params.userChosen / totalProtocols) * 100, // Convert to percentage
       ];
 
       // Add friends dynamically
@@ -63,19 +63,13 @@
         .forEach((friendKey) => {
           const friend = params[friendKey];
           labels.push(friend.name);
-          completedData.push(
-            ((friend.completed / totalProtocols) * 100).toFixed(2)
-          );
-          chosenData.push(
-            (((friend.completed + friend.chosen) / totalProtocols) * 100).toFixed(
-              2
-            )
-          );
+          completedPercentages.push((friend.completed / totalProtocols) * 100);
+          chosenPercentages.push((friend.chosen / totalProtocols) * 100);
         });
 
       // Find the maximum chosen percentage
-      const maxChosenPercentage = Math.max(...chosenData.map(Number));
-      const adjustedMaxY = Math.ceil((maxChosenPercentage + 10) / 10) * 10; // Add 10% buffer
+      const maxBarHeight = Math.max(...chosenPercentages);
+      const yAxisMax = Math.ceil((maxBarHeight + 10) / 10) * 10; // Add 10% more and round up
 
       // Data structure for stacked bars
       const data = {
@@ -83,12 +77,14 @@
         datasets: [
           {
             label: 'Completed',
-            data: completedData, // Completed percentages
+            data: completedPercentages, // Completed percentages
             backgroundColor: 'rgba(75, 192, 192, 0.8)', // Teal color
           },
           {
             label: 'Chosen',
-            data: chosenData, // Total chosen percentages
+            data: chosenPercentages.map(
+              (chosen, index) => chosen - completedPercentages[index]
+            ), // Remaining chosen percentages
             backgroundColor: 'rgba(200, 200, 200, 0.8)', // Light grey color
             borderRadius: {
               topLeft: 10,
@@ -120,8 +116,17 @@
               size: 12,
               weight: 'normal', // Lighter font weight
             },
-            formatter: (value) => {
-              return Math.round((value * totalProtocols) / 100); // Show total protocols
+            formatter: (value, context) => {
+              if (context.dataset.label === 'Chosen') {
+                const total = Math.round(
+                  (value * totalProtocols) / 100 +
+                    (completedPercentages[context.dataIndex] *
+                      totalProtocols) /
+                      100
+                );
+                return total;
+              }
+              return Math.round((value * totalProtocols) / 100);
             },
           },
         },
@@ -138,7 +143,7 @@
           y: {
             stacked: true, // Stack the bars
             beginAtZero: true,
-            max: adjustedMaxY, // Dynamically set max Y-axis value with buffer
+            max: yAxisMax, // Dynamically set max Y-axis value
             grid: {
               display: true, // Show grid lines for better readability
             },
@@ -150,11 +155,7 @@
             },
             title: {
               display: true,
-              text: '% of available protocols', // Add Y-axis title
-              color: '#4F4F4F',
-              font: {
-                size: 14,
-              },
+              text: '% of available protocols', // Label the Y-axis
             },
           },
         },
