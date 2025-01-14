@@ -32,10 +32,10 @@
 
       async function fetchData() {
         const params = new URLSearchParams(window.location.search);
-        const loggedInUserEmail = params.get("email");
+        const loggedInUserMobile = params.get("mobile");
 
-        if (!loggedInUserEmail) {
-          console.error("No email provided in URL parameters");
+        if (!loggedInUserMobile) {
+          console.error("No mobile number provided in URL parameters");
           return [];
         }
 
@@ -53,55 +53,64 @@
           const carerRegisterData = await carerRegisterResponse.json();
           const userData = await userResponse.json();
 
-          console.log("Carer Register Data:", carerRegisterData);
-          console.log("User Data:", userData);
-
           const carerRecords = carerRegisterData.records || [];
           const userRecords = userData.records || [];
 
+          // Filter relationships using mobile numbers
           const filteredCarerRelationships = carerRecords.filter((entry) => {
             const isCarer =
-              entry["Carer Name"] === loggedInUserEmail &&
+              entry["Carer mobile"] === loggedInUserMobile &&
               entry["Approved?"]?.toLowerCase() === "yes";
             const isBeingCaredFor =
-              entry["User Email"] === loggedInUserEmail &&
+              entry["User's mobile"] === loggedInUserMobile &&
               entry["Approved?"]?.toLowerCase() === "yes";
+
             return isCarer || isBeingCaredFor;
           });
 
-          console.log("Filtered Carer Relationships:", filteredCarerRelationships);
-
+          // Map filtered relationships to user details
           const relatedUsers = filteredCarerRelationships
             .map((entry) => {
-              const userEmail = entry["User Email"];
-              const userDetails = userRecords.find(
-                (user) => user["Email"] === userEmail
+              const carerEmail = userRecords.find(
+                (user) => user["Mobile"] === entry["Carer mobile"] && user["Email"]
               );
 
-              if (userDetails) {
+              const userEmail = userRecords.find(
+                (user) => user["Mobile"] === entry["User's mobile"] && user["Email"]
+              );
+
+              if (entry["Carer mobile"] === loggedInUserMobile && carerEmail) {
                 return {
-                  name: entry["User name"] || userDetails["Full Name"],
-                  completed: userDetails["Total Completed"] || 0,
-                  remaining: userDetails["Total Remaining"] || 0,
+                  name: entry["User name"] || userEmail["Full Name"],
+                  completed: parseInt(userEmail["Total Completed"]) || 0,
+                  remaining: parseInt(userEmail["Total Remaining"]) || 0,
                 };
               }
+
+              if (entry["User's mobile"] === loggedInUserMobile && userEmail) {
+                return {
+                  name: entry["Carer Name"] || carerEmail["Full Name"],
+                  completed: parseInt(carerEmail["Total Completed"]) || 0,
+                  remaining: parseInt(carerEmail["Total Remaining"]) || 0,
+                };
+              }
+
               return null;
             })
             .filter(Boolean);
 
+          // Add "You" as the logged-in user
           const loggedInUserDetails = userRecords.find(
-            (user) => user["Email"] === loggedInUserEmail
+            (user) => user["Mobile"] === loggedInUserMobile
           );
 
           if (loggedInUserDetails) {
             relatedUsers.unshift({
               name: "You",
-              completed: loggedInUserDetails["Total Completed"] || 0,
-              remaining: loggedInUserDetails["Total Remaining"] || 0,
+              completed: parseInt(loggedInUserDetails["Total Completed"]) || 0,
+              remaining: parseInt(loggedInUserDetails["Total Remaining"]) || 0,
             });
           }
-
-          console.log("Final Chart Data:", relatedUsers);
 
           return relatedUsers;
         } catch (error) {
@@ -117,8 +126,6 @@
           console.error("No data available to render chart");
           return;
         }
-
-        console.log("Rendering chart with data:", data);
 
         const labels = data.map((entry) => entry.name);
         const completedData = data.map((entry) => entry.completed);
