@@ -32,10 +32,10 @@
 
       async function fetchData() {
         const params = new URLSearchParams(window.location.search);
-        const loggedInUserMobile = params.get("mobile");
+        const loggedInUserEmail = params.get("email");
 
-        if (!loggedInUserMobile) {
-          console.error("No mobile number provided in URL parameters");
+        if (!loggedInUserEmail) {
+          console.error("No email provided in URL parameters");
           return [];
         }
 
@@ -56,13 +56,13 @@
           const carerRecords = carerRegisterData.records || [];
           const userRecords = userData.records || [];
 
-          // Filter relationships using mobile numbers
+          // Filter relationships using emails
           const filteredCarerRelationships = carerRecords.filter((entry) => {
             const isCarer =
-              entry["Carer mobile"] === loggedInUserMobile &&
+              entry["Carer Name"] === loggedInUserEmail &&
               entry["Approved?"]?.toLowerCase() === "yes";
             const isBeingCaredFor =
-              entry["User's mobile"] === loggedInUserMobile &&
+              entry["User Email"] === loggedInUserEmail &&
               entry["Approved?"]?.toLowerCase() === "yes";
 
             return isCarer || isBeingCaredFor;
@@ -71,37 +71,29 @@
           // Map filtered relationships to user details
           const relatedUsers = filteredCarerRelationships
             .map((entry) => {
-              const carerEmail = userRecords.find(
-                (user) => user["Mobile"] === entry["Carer mobile"] && user["Email"]
+              const relatedUser = userRecords.find(
+                (user) =>
+                  user["Email"] === entry["User Email"] ||
+                  user["Email"] === entry["Carer Name"]
               );
 
-              const userEmail = userRecords.find(
-                (user) => user["Mobile"] === entry["User's mobile"] && user["Email"]
-              );
-
-              if (entry["Carer mobile"] === loggedInUserMobile && carerEmail) {
+              if (relatedUser) {
                 return {
-                  name: entry["User name"] || userEmail["Full Name"],
-                  completed: parseInt(userEmail["Total Completed"]) || 0,
-                  remaining: parseInt(userEmail["Total Remaining"]) || 0,
+                  name:
+                    entry["User name"] ||
+                    relatedUser["Full Name"] ||
+                    entry["Carer Name"],
+                  completed: parseInt(relatedUser["Total Completed"]) || 0,
+                  remaining: parseInt(relatedUser["Total Remaining"]) || 0,
                 };
               }
-
-              if (entry["User's mobile"] === loggedInUserMobile && userEmail) {
-                return {
-                  name: entry["Carer Name"] || carerEmail["Full Name"],
-                  completed: parseInt(carerEmail["Total Completed"]) || 0,
-                  remaining: parseInt(carerEmail["Total Remaining"]) || 0,
-                };
-              }
-
               return null;
             })
             .filter(Boolean);
 
           // Add "You" as the logged-in user
           const loggedInUserDetails = userRecords.find(
-            (user) => user["Mobile"] === loggedInUserMobile
+            (user) => user["Email"] === loggedInUserEmail
           );
 
           if (loggedInUserDetails) {
@@ -142,12 +134,18 @@
             {
               label: "Completed",
               data: completedData.map((val) => (val / 54) * 100),
-              backgroundColor: "rgba(75, 192, 192, 0.8)",
+              backgroundColor: "rgba(75, 192, 192, 0.8)", // Teal color
             },
             {
               label: "Remaining",
               data: remainingData.map((val) => (val / 54) * 100),
-              backgroundColor: "rgba(200, 200, 200, 0.8)",
+              backgroundColor: "rgba(200, 200, 200, 0.8)", // Light grey color
+              borderRadius: {
+                topLeft: 10,
+                topRight: 10, // Round the top-left and top-right corners
+                bottomLeft: 0,
+                bottomRight: 0, // Keep bottom corners sharp
+              },
             },
           ],
         };
@@ -156,12 +154,40 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: {
+            x: {
+              stacked: true,
+              ticks: {
+                display: true,
+              },
+            },
             y: {
               beginAtZero: true,
+              stacked: true,
               max: maxYAxis,
               title: {
                 display: true,
                 text: "% of protocols chosen",
+              },
+            },
+          },
+          plugins: {
+            legend: {
+              display: true,
+            },
+            datalabels: {
+              display: true,
+              color: "#4F4F4F",
+              anchor: "center",
+              align: "center",
+              font: {
+                size: 12,
+                weight: "normal",
+              },
+              formatter: (value, context) => {
+                if (context.dataset.label === "Remaining") {
+                  return `${Math.round((value * 54) / 100)}`;
+                }
+                return `${Math.round((value * 54) / 100)}`;
               },
             },
           },
