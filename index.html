@@ -23,16 +23,13 @@
   <body>
     <canvas id="stackedBarChart"></canvas>
     <script>
-      // API Key
-      const apiKey = "944alidwz6py81e6xly1mh0ap"; // Replace with your actual API key
+      const apiKey = "944alidwz6py81e6xly1mh0ap";
 
-      // API Endpoints
       const carerRegisterAPI =
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_059juy5qau0rxqccr5oq8x38o";
       const userAPI =
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_01c3b6d144094994b8ac9fc0fdb1f5fc";
 
-      // Fetch data from APIs
       async function fetchData() {
         const params = new URLSearchParams(window.location.search);
         const loggedInUserEmail = params.get("email");
@@ -48,6 +45,7 @@
         };
 
         try {
+          console.log("Fetching Carer Register data...");
           const [carerRegisterResponse, userResponse] = await Promise.all([
             fetch(carerRegisterAPI, { headers }),
             fetch(userAPI, { headers }),
@@ -59,7 +57,6 @@
           console.log("Carer Register Data:", carerRegisterData);
           console.log("User Data:", userData);
 
-          // Filter carer relationships
           const filteredCarerRelationships = carerRegisterData.filter((entry) => {
             const isCarer =
               entry["Carer Name"] === loggedInUserEmail &&
@@ -72,7 +69,6 @@
 
           console.log("Filtered Carer Relationships:", filteredCarerRelationships);
 
-          // Map related users
           const relatedUsers = filteredCarerRelationships
             .map((entry) => {
               const userEmail = entry["User Email"];
@@ -91,7 +87,6 @@
             })
             .filter(Boolean);
 
-          // Add logged-in user details
           const loggedInUserDetails = userData.find(
             (user) => user["Email"] === loggedInUserEmail
           );
@@ -113,7 +108,6 @@
         }
       }
 
-      // Render chart
       async function renderChart() {
         const data = await fetchData();
 
@@ -122,18 +116,17 @@
           return;
         }
 
-        // Prepare chart labels and datasets
+        console.log("Rendering chart with data:", data);
+
         const labels = data.map((entry) => entry.name);
         const completedData = data.map((entry) => entry.completed);
         const remainingData = data.map(
           (entry) => entry.completed + entry.remaining
         );
 
-        // Find max value for Y-axis
         const maxValue = Math.max(...remainingData);
         const maxYAxis = Math.ceil((maxValue / 54) * 100 + 10);
 
-        // Data structure for stacked bars
         const chartData = {
           labels: labels,
           datasets: [
@@ -150,7 +143,6 @@
           ],
         };
 
-        // Chart options
         const options = {
           responsive: true,
           maintainAspectRatio: false,
@@ -162,14 +154,6 @@
                 display: true,
                 text: "% of protocols chosen",
               },
-            },
-          },
-          plugins: {
-            legend: {
-              display: true,
-            },
-            title: {
-              display: false,
             },
           },
         };
