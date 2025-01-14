@@ -45,7 +45,6 @@
         };
 
         try {
-          console.log("Fetching Carer Register data...");
           const [carerRegisterResponse, userResponse] = await Promise.all([
             fetch(carerRegisterAPI, { headers }),
             fetch(userAPI, { headers }),
@@ -57,7 +56,10 @@
           console.log("Carer Register Data:", carerRegisterData);
           console.log("User Data:", userData);
 
-          const filteredCarerRelationships = carerRegisterData.filter((entry) => {
+          const carerRecords = carerRegisterData.records || [];
+          const userRecords = userData.records || [];
+
+          const filteredCarerRelationships = carerRecords.filter((entry) => {
             const isCarer =
               entry["Carer Name"] === loggedInUserEmail &&
               entry["Approved?"]?.toLowerCase() === "yes";
@@ -72,7 +74,7 @@
           const relatedUsers = filteredCarerRelationships
             .map((entry) => {
               const userEmail = entry["User Email"];
-              const userDetails = userData.find(
+              const userDetails = userRecords.find(
                 (user) => user["Email"] === userEmail
               );
 
@@ -87,7 +89,7 @@
             })
             .filter(Boolean);
 
-          const loggedInUserDetails = userData.find(
+          const loggedInUserDetails = userRecords.find(
             (user) => user["Email"] === loggedInUserEmail
           );
 
