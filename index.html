@@ -23,63 +23,72 @@
   <body>
     <canvas id="stackedBarChart"></canvas>
     <script>
+      // API Key
       const apiKey = "944alidwz6py81e6xly1mh0ap";
 
+      // API Endpoints
       const carerRegisterAPI =
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_059juy5qau0rxqccr5oq8x38o";
       const userAPI =
         "https://api.adalo.com/v0/apps/c8dc57c5-a121-4498-814f-35379f73a5fa/collections/t_01c3b6d144094994b8ac9fc0fdb1f5fc";
 
-      const totalProtocols = 54; // Total number of protocols
-
       async function fetchData() {
         const urlParams = new URLSearchParams(window.location.search);
         const loggedInUserEmail = urlParams.get("email");
 
+        // Headers for authentication
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         };
 
+        // Fetch data from Carer Register
         const carerRegisterResponse = await fetch(carerRegisterAPI, { headers });
         const carerRegisterData = await carerRegisterResponse.json();
 
+        // Fetch data from User Collection
         const userResponse = await fetch(userAPI, { headers });
         const userData = await userResponse.json();
 
-        const userDetails = userData.records.find(
+        // Filter and process data
+        const filteredCarerRelationships = carerRegisterData.records.filter((entry) => {
+          const isCarer =
+            entry["Carer Name"] === loggedInUserEmail &&
+            entry["Approved?"].toLowerCase() === "yes";
+          const isBeingCaredFor =
+            entry["User Email"] === loggedInUserEmail &&
+            entry["Approved?"].toLowerCase() === "yes";
+          return isCarer || isBeingCaredFor;
+        });
+
+        const relatedUsers = filteredCarerRelationships
+          .map((entry) => {
+            const userEmail = entry["User Email"];
+            const userDetails = userData.records.find(
+              (user) => user["Email"] === userEmail
+            );
+
+            if (userDetails) {
+              return {
+                name: entry["User name"] || userDetails["Full Name"],
+                completed: userDetails["Total Completed"],
+                remaining: userDetails["Total Remaining"],
+              };
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        const loggedInUserDetails = userData.records.find(
           (user) => user["Email"] === loggedInUserEmail
         );
-
-        const relatedUsers = [];
-
-        if (userDetails) {
-          relatedUsers.push({
+        if (loggedInUserDetails) {
+          relatedUsers.unshift({
             name: "You",
-            completed: userDetails["Total Completed"],
-            remaining: userDetails["Total Remaining"],
+            completed: loggedInUserDetails["Total Completed"],
+            remaining: loggedInUserDetails["Total Remaining"],
           });
         }
-
-        carerRegisterData.records
-          .filter(
-            (entry) =>
-              entry["Carer Name"] === loggedInUserEmail &&
-              entry["Approved?"].toLowerCase() === "yes"
-          )
-          .forEach((entry) => {
-            const caredUserEmail = entry["User Email"];
-            const caredUserDetails = userData.records.find(
-              (user) => user["Email"] === caredUserEmail
-            );
-            if (caredUserDetails) {
-              relatedUsers.push({
-                name: entry["User name"] || caredUserDetails["Full Name"],
-                completed: caredUserDetails["Total Completed"],
-                remaining: caredUserDetails["Total Remaining"],
-              });
-            }
-          });
 
         return relatedUsers;
       }
@@ -87,92 +96,97 @@
       async function renderChart() {
         const data = await fetchData();
 
+        // Prepare chart labels and datasets
         const labels = data.map((entry) => entry.name);
-        const completedData = data.map(
-          (entry) => (entry.completed / totalProtocols) * 100
-        );
+        const completedData = data.map((entry) => entry.completed);
         const remainingData = data.map(
-          (entry) => ((entry.completed + entry.remaining) / totalProtocols) * 100
+          (entry) => entry.completed + entry.remaining
         );
 
-        const maxYAxis =
-          Math.ceil(Math.max(...remainingData) / 10) * 10 + 10; // Add 10% for white space
+        // Find max value for Y-axis
+        const totalProtocols = 54; // Total available protocols
+        const maxPercentage = Math.max(...remainingData.map((val) => (val / totalProtocols) * 100));
+        const maxYAxis = Math.ceil(maxPercentage + 10); // Add 10% extra white space
 
+        // Data structure for stacked bars
         const chartData = {
           labels: labels,
           datasets: [
             {
               label: "Completed",
-              data: completedData,
-              backgroundColor: "rgba(75, 192, 192, 0.8)",
+              data: completedData.map((val) => (val / totalProtocols) * 100), // Convert to percentage
+              backgroundColor: "rgba(75, 192, 192, 0.8)", // Teal color
             },
             {
               label: "Remaining",
-              data: remainingData.map(
-                (val, i) => val - completedData[i]
-              ), // Calculate only the "Remaining" portion
-              backgroundColor: "rgba(200, 200, 200, 0.8)",
+              data: remainingData.map((val) => (val / totalProtocols) * 100), // Convert to percentage
+              backgroundColor: "rgba(200, 200, 200, 0.8)", // Light grey color
               borderRadius: {
                 topLeft: 10,
-                topRight: 10,
+                topRight: 10, // Round the top-left and top-right corners
                 bottomLeft: 0,
-                bottomRight: 0,
+                bottomRight: 0, // Keep bottom corners sharp
               },
             },
           ],
         };
 
+        // Chart configuration options
         const options = {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: false, // Ensures the chart adjusts to fit the container
+          layout: {
+            padding: {
+              left: 30, // Add space on the left
+              right: 30, // Add space on the right
+            },
+          },
           plugins: {
             legend: {
-              display: true,
+              display: true, // Show the legend
             },
             title: {
-              display: false,
+              display: false, // Removes the title heading
             },
             datalabels: {
-              display: true,
-              color: "#4F4F4F",
-              anchor: "center",
+              display: true, // Enable datalabels
+              color: "#4F4F4F", // Dark grey color for labels
+              anchor: "center", // Position inside the bar
               align: "center",
               font: {
                 size: 12,
-                weight: "normal",
+                weight: "normal", // Lighter font weight
               },
               formatter: (value, context) => {
-                const index = context.dataIndex;
-                const label = context.dataset.label;
-                if (label === "Completed") {
-                  return data[index].completed;
+                if (context.dataset.label === "Remaining") {
+                  return `${Math.round((value * totalProtocols) / 100)}`;
                 }
-                if (label === "Remaining") {
-                  return data[index].remaining;
-                }
-                return "";
+                return `${Math.round((value * totalProtocols) / 100)}`;
               },
             },
           },
           scales: {
             x: {
-              stacked: true,
+              stacked: true, // Stack the bars
               grid: {
-                display: false,
+                display: false, // Hide grid lines
               },
               ticks: {
-                display: true,
+                display: true, // Show X-axis labels
               },
             },
             y: {
-              stacked: true,
+              stacked: true, // Stack the bars
               beginAtZero: true,
-              max: maxYAxis,
+              max: maxYAxis, // Dynamically set max Y-axis value
               grid: {
-                display: true,
+                display: true, // Show grid lines for better readability
               },
               ticks: {
-                callback: (value) => `${value}%`,
+                display: true, // Show Y-axis percentage points
+                callback: function (value) {
+                  return value + "%"; // Add percentage symbol to Y-axis ticks
+                },
               },
               title: {
                 display: true,
@@ -182,12 +196,13 @@
           },
         };
 
+        // Render the chart
         const ctx = document.getElementById("stackedBarChart").getContext("2d");
         new Chart(ctx, {
           type: "bar",
           data: chartData,
           options: options,
-          plugins: [ChartDataLabels],
+          plugins: [ChartDataLabels], // Include the datalabels plugin
         });
       }
 
